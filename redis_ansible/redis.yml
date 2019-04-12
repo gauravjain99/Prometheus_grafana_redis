@@ -1,0 +1,95 @@
+---
+  - hosts: all
+    remote_user: ec2-user
+    gather_facts: false
+    tasks:
+      - name: update
+        yum:
+          name: '*'
+          state: latest
+
+      - name: downloading epel-release
+        get_url:
+          url: https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+          dest: /home/ec2-user/
+
+      - name: installing epel-release
+        yum:
+          name: epel-release-latest-7.noarch.rpm
+          state: present
+
+      - name: installing redis
+        yum:
+          name: redis
+          state: present
+
+      - name: starting redis
+        service:
+          name: redis
+          state: started
+          enabled: yes
+
+      - name: installing vim
+        yum:
+          name: vim
+          state: present
+
+      - name: installing required packages to set up repository
+        package:
+          name: "{{ item }}"
+          state: present
+        loop:
+          - yum-utils
+          - lvm2
+          - device-mapper-persistent-data
+
+      - name: Adding docker repository
+        command: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+        args:
+          creates: /etc/yum.repos.d/docker-ce.repo 
+
+      - name: update
+        yum:
+          name: '*'
+          state: latest
+
+      - name: downloading container-selinux
+        get_url:
+          url: http://mirror.centos.org/centos/7/extras/x86_64/Packages/container-selinux-2.74-1.el7.noarch.rpm
+          dest: /home/ec2-user/
+
+      - name: installing container-selinux
+        yum:
+          name: container-selinux-2.74-1.el7.noarch.rpm
+          state: present
+
+      - name: installing docker-ce
+        package:
+          name: docker-ce
+          state: present
+
+      - name: starting and enabling the docker service
+        service:
+          name: docker
+          state: started
+          enabled: yes
+
+      - name: install pip
+        yum:
+          name: python-pip
+          state: present
+
+      - name: install docker python module
+        pip:
+          name: docker
+
+      - name: pull an image
+        docker_image:
+          name: oliver006/redis_exporter
+
+      - name: launch a docker redis exporter container
+        docker_container:
+          name: redis_exporter
+          image: oliver006/redis_exporter
+          state: started
+          network_mode: host
